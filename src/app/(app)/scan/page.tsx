@@ -3,15 +3,25 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Zap } from "lucide-react";
 
+/**
+ * Legion-shaped seed groups: boring/utilitarian, demonstrable, weak listings,
+ * niche enough to be ignored. The pattern matters more than the chemistry.
+ */
 const PRESETS: { label: string; keywords: string[] }[] = [
-  { label: "Industrial Cleaners", keywords: ["industrial degreaser", "commercial degreaser", "equipment cleaner", "heavy duty cleaner"] },
-  { label: "Specialty Removers", keywords: ["graffiti remover", "adhesive remover", "rust remover", "paint remover", "mold stain remover"] },
+  // --- Legion-shaped non-chemical verticals ---
+  { label: "Pest & Wildlife Control", keywords: ["mole repellent", "vole killer", "carpenter bee trap", "wasp killer foam", "snake repellent", "gopher gas", "mouse bait station"] },
+  { label: "Auto Detailing & Restoration", keywords: ["headlight restoration kit", "tar remover", "brake dust cleaner", "leather restorer", "paint overspray remover", "wheel cleaner", "clay bar kit"] },
+  { label: "Pool, Spa & Water", keywords: ["pool stain remover", "calcium remover for pool", "phosphate remover", "spa flush", "well water iron filter", "pool clarifier"] },
+  { label: "HVAC & Appliance Maintenance", keywords: ["dishwasher descaler", "ac coil cleaner", "dryer vent cleaning kit", "washing machine cleaner", "garbage disposal cleaner", "humidifier cleaner"] },
+  { label: "Lawn, Garden & Turf Pro", keywords: ["stump remover", "crabgrass killer", "lawn fungicide", "root killer for sewer line", "dethatcher rake", "grub killer"] },
+  { label: "Pet Odor, Stain & Utility", keywords: ["cat urine enzyme cleaner", "dog ear cleaner", "skunk odor remover", "pet hair remover for laundry", "flea treatment for yard"] },
+  { label: "Tools & Hardware Specialty", keywords: ["stripped screw extractor", "broken bolt remover", "drain snake auger", "magnetic parts tray", "thread repair kit", "impact driver bit set"] },
+  { label: "Marine, RV & Off-Grid", keywords: ["rv holding tank treatment", "bilge cleaner", "rv antifreeze", "generator stabilizer", "anti fouling paint", "rv roof cleaner"] },
+  // --- Original Legion-adjacent chemical verticals ---
   { label: "Concrete / Masonry", keywords: ["concrete remover", "oil stain remover for concrete", "grout haze remover", "rust remover for concrete", "efflorescence remover"] },
-  { label: "Janitorial / Facility", keywords: ["floor stripper", "commercial descaler", "no rinse disinfectant", "urinal deodorizer cake"] },
-  { label: "Automotive / RV / Boat", keywords: ["boat hull cleaner", "RV roof cleaner", "wheel cleaner", "bug remover", "aluminum brightener"] },
+  { label: "Specialty Removers", keywords: ["graffiti remover", "adhesive remover", "rust remover", "paint remover", "mold stain remover"] },
+  { label: "Industrial / Janitorial", keywords: ["industrial degreaser", "floor stripper", "commercial descaler", "equipment cleaner", "no rinse disinfectant"] },
   { label: "Commercial Kitchen", keywords: ["commercial kitchen degreaser", "oven cleaner commercial", "grill cleaner", "fryer boil out"] },
-  { label: "Odor / Stain Control", keywords: ["odor eliminator", "mold stain remover", "pet odor eliminator industrial", "smoke odor eliminator"] },
-  { label: "Restoration Supplies", keywords: ["asphalt release agent", "tar remover", "soot remover", "water damage treatment"] },
 ];
 
 export default function ScanPage() {

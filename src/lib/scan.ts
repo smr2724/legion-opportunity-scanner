@@ -294,12 +294,28 @@ function formatOppName(seed: string) {
 
 function inferCategory(seed: string): string {
   const kw = seed.toLowerCase();
+  // Pest & wildlife
+  if (/\b(mole|vole|gopher|snake|wasp|hornet|carpenter bee|mouse|rat|rodent|ant|roach|flea|tick|bug|bee|spider|pest|repellent|bait)\b/.test(kw)) return "Pest & Wildlife";
+  // Auto detailing & restoration
+  if (/\b(headlight|tar|brake dust|leather|overspray|clay bar|wheel cleaner|car wash|detailing|paint correction)\b/.test(kw)) return "Auto Detailing";
+  // Pool & spa
+  if (/\b(pool|spa|hot tub|chlorine|phosphate|clarifier|stabilizer|algaecide|well water|iron filter)\b/.test(kw)) return "Pool & Spa";
+  // HVAC & appliance
+  if (/\b(dishwasher|washing machine|dryer vent|garbage disposal|humidifier|ac coil|hvac|condenser|evaporator|appliance)\b/.test(kw)) return "HVAC & Appliance";
+  // Lawn & turf
+  if (/\b(stump|crabgrass|fungicide|herbicide|grub|dethatcher|lawn|turf|sewer line|root killer|grass)\b/.test(kw)) return "Lawn & Turf";
+  // Pet odor & utility
+  if (/\b(cat urine|dog ear|skunk|pet hair|pet odor|enzyme cleaner|flea spray)\b/.test(kw)) return "Pet Utility";
+  // Tools & hardware
+  if (/\b(screw extractor|bolt remover|drain snake|auger|thread repair|magnetic parts|impact driver|bit set|tool)\b/.test(kw)) return "Tools & Hardware";
+  // Marine & RV
+  if (/\b(boat|hull|rv|holding tank|bilge|antifreeze|generator|fouling|marine)\b/.test(kw)) return "Marine & RV";
+  // Original chemicals categories
   if (/\b(concrete|masonry|grout|mortar)\b/.test(kw)) return "Concrete & Masonry";
   if (/\b(rust|corrosion)\b/.test(kw)) return "Rust & Corrosion";
   if (/\b(degreaser|grease|oil)\b/.test(kw)) return "Degreasers";
   if (/\b(graffiti|paint|adhesive|glue)\b/.test(kw)) return "Surface Removers";
   if (/\b(ice machine|descaler|scale|hard water)\b/.test(kw)) return "Descaling";
-  if (/\b(boat|hull|rv)\b/.test(kw)) return "Marine & RV";
   if (/\b(kitchen|commercial kitchen)\b/.test(kw)) return "Commercial Kitchen";
   if (/\b(mold|mildew|odor|stain)\b/.test(kw)) return "Stain & Odor Control";
   if (/\b(floor stripper|janitorial|facility)\b/.test(kw)) return "Janitorial";
