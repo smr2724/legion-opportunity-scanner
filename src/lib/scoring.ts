@@ -142,15 +142,17 @@ export function calcCompetitionWeaknessScore(products: ProductRow[]) {
 
   const avgReviews = avg(top10.map(p => p.review_count ?? 0));
   const avgRating = avg(top10.map(p => p.rating ?? 0).filter(r => r > 0));
-  const weakReviewCount = top10.filter(p => (p.review_count ?? 0) < 500).length;
+  // Steve's rule: <300 reviews = immediate opportunity
+  const weakReviewCount = top10.filter(p => (p.review_count ?? 0) < 300).length;
   const mediocreRatingCount = top10.filter(p => (p.rating ?? 5) < 4.3).length;
 
-  // Reviews component (0..8): fewer avg reviews = more opportunity
+  // Reviews component (0..10): fewer avg reviews = more opportunity
+  // Steve's rule: <300 avg reviews = the sweet spot
   let reviewsComp = 0;
-  if (avgReviews <= 200) reviewsComp = 8;
-  else if (avgReviews <= 750) reviewsComp = 6;
-  else if (avgReviews <= 2_000) reviewsComp = 4;
-  else if (avgReviews <= 5_000) reviewsComp = 2;
+  if (avgReviews <= 100) reviewsComp = 10;
+  else if (avgReviews <= 300) reviewsComp = 8;
+  else if (avgReviews <= 750) reviewsComp = 5;
+  else if (avgReviews <= 2_000) reviewsComp = 2;
   else reviewsComp = 0;
 
   // Rating component (0..5): lower avg rating = more opportunity (but not too low — indicates bad category)
@@ -168,9 +170,9 @@ export function calcCompetitionWeaknessScore(products: ProductRow[]) {
   else if (weakReviewCount >= 2) fragComp = 2;
   else if (weakReviewCount >= 1) fragComp = 1;
 
-  // Brand-dominance penalty: if any single product has >20k reviews AND rating >=4.5, page one has a king
-  const hasKing = top10.some(p => (p.review_count ?? 0) >= 20_000 && (p.rating ?? 0) >= 4.5);
-  const kingPenalty = hasKing ? -4 : 0;
+  // Brand-dominance penalty: if any single product has >5k reviews AND rating >=4.5, page one has an entrenched winner
+  const hasKing = top10.some(p => (p.review_count ?? 0) >= 5_000 && (p.rating ?? 0) >= 4.5);
+  const kingPenalty = hasKing ? -6 : 0;
 
   // Mediocre-rating bonus (0..3)
   let mediocreBonus = 0;
@@ -178,9 +180,12 @@ export function calcCompetitionWeaknessScore(products: ProductRow[]) {
   else if (mediocreRatingCount >= 2) mediocreBonus = 2;
   else if (mediocreRatingCount >= 1) mediocreBonus = 1;
 
+  // Hard cap: if avg reviews >= 1000, this is no longer a Legion-shape category — score capped at 6
+  const tooManyReviewsCap = avgReviews >= 1_000 ? 6 : 20;
+
   const raw = reviewsComp + ratingComp + fragComp + mediocreBonus + kingPenalty;
   return {
-    score: clamp(raw, 0, 20),
+    score: clamp(Math.min(raw, tooManyReviewsCap), 0, 20),
     avgReviews,
     avgRating,
     weakReviewCount,
