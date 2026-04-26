@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function ReviewQueuePage() {
   const supabase = createSupabaseServerClient();
 
-  const base = () => supabase.from("opportunities").select("*");
+  const base = () => supabase.from("opportunities").select("*").is("archived_at", null);
 
   // 1) Top 10 highest-scoring new (status = 'new' or 'review' or 'deep_dive' not yet decided)
   const { data: topNew } = await base()

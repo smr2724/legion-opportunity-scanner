@@ -8,6 +8,7 @@ import NotesPanel from "./NotesPanel";
 import ProductsTable from "./ProductsTable";
 import RefreshButton from "./RefreshButton";
 import SuppliersSection from "./SuppliersSection";
+import ArchiveButton from "./ArchiveButton";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,11 @@ export default async function OpportunityPage({ params }: { params: { id: string
               <StatusPill value={opp.status} />
               <PathPill value={opp.recommended_path} />
               <span className="text-xs text-[var(--text-muted)]">{opp.category ?? "Other"}</span>
+              {opp.archived_at && (
+                <span className="text-[11px] uppercase tracking-wide px-2 py-0.5 rounded border border-[var(--border)] text-[var(--text-muted)]">
+                  Archived
+                </span>
+              )}
             </div>
             <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">{opp.name ?? opp.main_keyword}</h1>
             <div className="text-sm text-[var(--text-muted)] mt-1">Main keyword: <span className="text-[var(--text)]">{opp.main_keyword}</span></div>
@@ -74,6 +80,7 @@ export default async function OpportunityPage({ params }: { params: { id: string
         <div className="mt-5 pt-4 border-t border-[var(--border-soft)] flex flex-wrap gap-2 items-center">
           <DecisionButtons id={opp.id} status={opp.status} />
           <div className="flex-1" />
+          <ArchiveButton id={opp.id} archived={!!opp.archived_at} />
           <RefreshButton id={opp.id} />
         </div>
       </div>

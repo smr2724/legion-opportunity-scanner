@@ -18,7 +18,17 @@ const SORTS = [
   { v: "last_scanned", l: "Last scanned" },
 ];
 
-export default function DashboardFilters({ categories, initial }: { categories: string[]; initial: any }) {
+export default function DashboardFilters({
+  categories,
+  initial,
+  archivedCount,
+  showArchived,
+}: {
+  categories: string[];
+  initial: any;
+  archivedCount?: number;
+  showArchived?: boolean;
+}) {
   const router = useRouter();
   const params = useSearchParams();
   const [q, setQ] = useState(initial.q ?? "");
@@ -28,6 +38,12 @@ export default function DashboardFilters({ categories, initial }: { categories: 
   function update(key: string, val: string) {
     const sp = new URLSearchParams(params.toString());
     if (val) sp.set(key, val); else sp.delete(key);
+    router.push(`/dashboard?${sp.toString()}`);
+  }
+
+  function toggleArchived() {
+    const sp = new URLSearchParams(params.toString());
+    if (showArchived) sp.delete("archived"); else sp.set("archived", "1");
     router.push(`/dashboard?${sp.toString()}`);
   }
 
@@ -74,6 +90,19 @@ export default function DashboardFilters({ categories, initial }: { categories: 
           defaultValue={initial.max_reviews ?? ""} onBlur={e => update("max_reviews", e.target.value)}
         />
         <button className="btn" onClick={() => router.push("/dashboard")}>Clear filters</button>
+      </div>
+
+      <div className="flex items-center justify-end mt-2">
+        <button
+          type="button"
+          onClick={toggleArchived}
+          className={`btn text-xs ${showArchived ? "btn-primary" : ""}`}
+          title={showArchived ? "Back to active" : "View archived opportunities"}
+        >
+          {showArchived
+            ? "← Show active"
+            : `Show archived${archivedCount ? ` (${archivedCount})` : ""}`}
+        </button>
       </div>
     </div>
   );

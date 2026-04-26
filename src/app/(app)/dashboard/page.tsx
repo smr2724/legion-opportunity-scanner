@@ -15,11 +15,19 @@ interface Search {
   category?: string;
   q?: string;
   sort?: string;
+  archived?: string;
 }
 
 export default async function Dashboard({ searchParams }: { searchParams: Search }) {
   const supabase = createSupabaseServerClient();
+  const showArchived = searchParams.archived === "1";
   let q = supabase.from("opportunities").select("*");
+
+  if (showArchived) {
+    q = q.not("archived_at", "is", null);
+  } else {
+    q = q.is("archived_at", null);
+  }
 
   if (searchParams.status) q = q.eq("status", searchParams.status);
   if (searchParams.path) q = q.eq("recommended_path", searchParams.path);
@@ -42,9 +50,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
 
   const { data: opps } = await q.limit(500);
 
-  // Category list for filters
-  const { data: allOpps } = await supabase.from("opportunities").select("category, status").limit(1000);
+  // Category list for filters (from current view — active or archived)
+  let catQ = supabase.from("opportunities").select("category, status");
+  catQ = showArchived ? catQ.not("archived_at", "is", null) : catQ.is("archived_at", null);
+  const { data: allOpps } = await catQ.limit(2000);
   const categories = Array.from(new Set((allOpps ?? []).map(o => o.category).filter(Boolean))) as string[];
+
+  // Archived count for the toggle badge
+  const { count: archivedCount } = await supabase
+    .from("opportunities")
+    .select("id", { count: "exact", head: true })
+    .not("archived_at", "is", null);
 
   const kpi = computeKpis(opps ?? []);
 
@@ -52,8 +68,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
     <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
       <div className="flex items-start justify-between flex-wrap gap-3 mb-5">
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold tracking-tight">Opportunity Dashboard</h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">Ranked by Legion Score. Every opportunity should end with a decision.</p>
+          <h1 className="text-xl md:text-2xl font-semibold tracking-tight">
+            {showArchived ? "Archived Opportunities" : "Opportunity Dashboard"}
+          </h1>
+          <p className="text-sm text-[var(--text-muted)] mt-1">
+            {showArchived
+              ? "Viewing archived items. Click Restore to bring one back."
+              : "Ranked by Legion Score. Every opportunity should end with a decision."}
+          </p>
         </div>
         <Link href="/scan" className="btn btn-primary">+ New Scan</Link>
       </div>
@@ -67,7 +89,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
         <Kpi label="Avg Score" value={kpi.avg_score || "—"} />
       </div>
 
-      <DashboardFilters categories={categories} initial={searchParams} />
+      <DashboardFilters categories={categories} initial={searchParams} archivedCount={archivedCount ?? 0} showArchived={showArchived} />
 
       <div className="card overflow-hidden mt-4">
         <div className="overflow-x-auto">
