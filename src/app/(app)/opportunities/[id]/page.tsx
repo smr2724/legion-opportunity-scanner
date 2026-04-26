@@ -7,6 +7,7 @@ import DecisionButtons from "./DecisionButtons";
 import NotesPanel from "./NotesPanel";
 import ProductsTable from "./ProductsTable";
 import RefreshButton from "./RefreshButton";
+import SuppliersSection from "./SuppliersSection";
 
 export const dynamic = "force-dynamic";
 
@@ -141,6 +142,8 @@ export default async function OpportunityPage({ params }: { params: { id: string
           <p className="text-sm leading-relaxed whitespace-pre-line">{opp.partner_notes ?? "—"}</p>
         </Section>
       </div>
+
+      <SuppliersSection opportunityId={opp.id} />
 
       <Section title="Steve Notes">
         <NotesPanel opportunityId={opp.id} initialNotes={notes ?? []} />

@@ -212,3 +212,45 @@ export async function amazonSerpLive(keyword: string, opts: { depth?: number; lo
   }
   return deduped;
 }
+
+// -----------------------------------------------------------------------------
+// Google SERP (live) — used for supplier discovery on the open web.
+// -----------------------------------------------------------------------------
+export interface GoogleSerpItem {
+  title?: string;
+  url?: string;
+  domain?: string;
+  description?: string;
+  rank_absolute?: number;
+  type?: string;
+}
+
+export async function googleSerpLive(query: string, opts: { depth?: number; locationCode?: number } = {}): Promise<GoogleSerpItem[]> {
+  const body = [{
+    keyword: query,
+    location_code: opts.locationCode ?? 2840, // US
+    language_code: "en",
+    depth: opts.depth ?? 40,
+    device: "desktop",
+  }];
+  const out = await dfs<any>("/v3/serp/google/organic/live/advanced", body);
+  const items = out?.tasks?.[0]?.result?.[0]?.items ?? [];
+  const results: GoogleSerpItem[] = [];
+  for (const it of items) {
+    if (it?.type !== "organic") continue;
+    const url: string | undefined = it?.url ?? undefined;
+    let domain = it?.domain ?? undefined;
+    if (!domain && url) {
+      try { domain = new URL(url).hostname.replace(/^www\./, ""); } catch {}
+    }
+    results.push({
+      title: it?.title ?? undefined,
+      url,
+      domain,
+      description: it?.description ?? it?.snippet ?? undefined,
+      rank_absolute: typeof it?.rank_absolute === "number" ? it.rank_absolute : undefined,
+      type: it?.type,
+    });
+  }
+  return results;
+}
