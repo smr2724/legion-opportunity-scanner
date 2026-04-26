@@ -1,9 +1,17 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
 export const metadata: Metadata = {
-  title: "Legion Opportunity Scanner",
-  description: "Find ignored Amazon categories with real demand, weak competition, and a clear path to Partner, Launch, Acquire — or Avoid.",
+  title: "Rolle Management Group",
+  description:
+    "Rolle Management Group partners with established manufacturers to find overlooked niche e-commerce opportunities, then builds and operates the Amazon marketplace engine around them.",
 };
 
 export const viewport: Viewport = {
@@ -15,7 +23,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={inter.variable}>
       <body>{children}</body>
     </html>
   );

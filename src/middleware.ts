@@ -28,18 +28,20 @@ export async function middleware(req: NextRequest) {
 
   const path = req.nextUrl.pathname;
   const isAuthPage = path === "/login" || path === "/signup";
-  const isPublic = path.startsWith("/_next") || path.startsWith("/api/public") || path === "/favicon.ico";
+  const isProtected = path === "/app" || path.startsWith("/app/");
 
-  if (!user && !isAuthPage && !isPublic) {
+  // Require auth only for /app/* routes
+  if (!user && isProtected) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", path);
     return NextResponse.redirect(url);
   }
 
+  // If logged in and visiting login/signup, send to app dashboard
   if (user && isAuthPage) {
     const url = req.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/app/dashboard";
     return NextResponse.redirect(url);
   }
 

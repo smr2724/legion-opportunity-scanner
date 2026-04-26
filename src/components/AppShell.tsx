@@ -5,14 +5,14 @@ import { useState } from "react";
 import { LayoutDashboard, Plus, List, Factory, Settings, LogOut, Menu, X, Zap, Handshake, Layers, History } from "lucide-react";
 
 const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/scan", label: "New Scan", icon: Plus },
-  { href: "/scan/batch", label: "Batch Scan", icon: Layers },
-  { href: "/sweeps", label: "Sweeps", icon: History },
-  { href: "/review", label: "Review Queue", icon: List },
-  { href: "/suppliers", label: "Suppliers", icon: Handshake },
-  { href: "/manufacturers", label: "Manufacturers", icon: Factory },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/app/scan", label: "New Scan", icon: Plus },
+  { href: "/app/scan/batch", label: "Batch Scan", icon: Layers },
+  { href: "/app/sweeps", label: "Sweeps", icon: History },
+  { href: "/app/review", label: "Review Queue", icon: List },
+  { href: "/app/suppliers", label: "Suppliers", icon: Handshake },
+  { href: "/app/manufacturers", label: "Manufacturers", icon: Factory },
+  { href: "/app/settings", label: "Settings", icon: Settings },
 ];
 
 export default function AppShell({ children, email }: { children: React.ReactNode; email?: string | null }) {

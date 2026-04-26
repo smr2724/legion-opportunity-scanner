@@ -15,7 +15,7 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const redirect = params.get("redirect") ?? "/dashboard";
+  const redirect = params.get("redirect") ?? "/app/dashboard";
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
