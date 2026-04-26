@@ -2,11 +2,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, Plus, List, Factory, Settings, LogOut, Menu, X, Zap, Handshake } from "lucide-react";
+import { LayoutDashboard, Plus, List, Factory, Settings, LogOut, Menu, X, Zap, Handshake, Layers, History } from "lucide-react";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/scan", label: "New Scan", icon: Plus },
+  { href: "/scan/batch", label: "Batch Scan", icon: Layers },
+  { href: "/sweeps", label: "Sweeps", icon: History },
   { href: "/review", label: "Review Queue", icon: List },
   { href: "/suppliers", label: "Suppliers", icon: Handshake },
   { href: "/manufacturers", label: "Manufacturers", icon: Factory },

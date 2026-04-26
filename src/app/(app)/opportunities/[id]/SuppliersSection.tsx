@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import FindSuppliersButton from "./FindSuppliersButton";
 
 const PATH_LABEL: Record<string, string> = {
   partner: "Partner",
@@ -37,7 +38,7 @@ function prettyChannel(c?: string | null): string {
 export default async function SuppliersSection({ opportunityId }: { opportunityId: string }) {
   const supabase = createSupabaseServerClient();
 
-  const [{ data: pairs }, { data: scan }] = await Promise.all([
+  const [{ data: pairs }, { data: scan }, { data: activeJob }] = await Promise.all([
     supabase
       .from("opportunity_suppliers")
       .select(`
@@ -58,6 +59,15 @@ export default async function SuppliersSection({ opportunityId }: { opportunityI
       .order("started_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from("jobs")
+      .select("id, status")
+      .eq("type", "supplier_scan")
+      .eq("related_opportunity_id", opportunityId)
+      .in("status", ["pending", "running"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const list = pairs ?? [];
@@ -73,13 +83,21 @@ export default async function SuppliersSection({ opportunityId }: { opportunityI
             B2B / wholesale-only manufacturers ranked for path-of-least-resistance to a partnership.
           </p>
         </div>
-        {scan && (
-          <div className="text-[10px] text-[var(--text-muted)] text-right">
-            {scan.status === "complete"
-              ? <>Scanned {scan.completed_at ? new Date(scan.completed_at).toLocaleDateString() : ""} · {scan.candidates_qualified}/{scan.candidates_found} qualified</>
-              : <>Scan {scan.status}</>}
-          </div>
-        )}
+        <div className="flex flex-col items-end gap-2">
+          <FindSuppliersButton
+            opportunityId={opportunityId}
+            hasSuppliers={(list?.length ?? 0) > 0}
+            scanStatus={activeJob?.status ?? null}
+            initialJobId={activeJob?.id ?? null}
+          />
+          {scan && (
+            <div className="text-[10px] text-[var(--text-muted)] text-right">
+              {scan.status === "complete"
+                ? <>Last scanned {scan.completed_at ? new Date(scan.completed_at).toLocaleDateString() : ""} · {scan.candidates_qualified}/{scan.candidates_found} qualified</>
+                : <>Scan {scan.status}</>}
+            </div>
+          )}
+        </div>
       </div>
 
       {list.length > 0 && (
