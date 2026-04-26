@@ -634,6 +634,61 @@ export async function runSupplierScan(args: RunSupplierScanArgs) {
     }
   }
 
+  // 8b. Auto-archive logic for suppliers from this scan
+  // Keep ONLY the #1 supplier active for this opportunity. Archive the rest —
+  // UNLESS a non-#1 supplier is also the top-1 for some OTHER active opportunity
+  // (we don't want to clobber a supplier that's a winner elsewhere).
+  const touchedSupplierIds = Object.values(supplierIdByDomain);
+  const topSupplierId = top.length > 0 ? supplierIdByDomain[top[0].domain] : null;
+
+  if (touchedSupplierIds.length > 0) {
+    // Restore the #1 (in case it was previously archived)
+    if (topSupplierId) {
+      await supabase
+        .from("suppliers")
+        .update({ archived_at: null })
+        .eq("id", topSupplierId)
+        .eq("user_id", userId);
+    }
+
+    // Find suppliers that are top-1 for any OTHER active opportunity — these are protected
+    const { data: protectedRows } = await supabase
+      .from("opportunity_suppliers")
+      .select("supplier_id, supplier_score, ranked_position, opportunity_id, opportunities!inner(archived_at)")
+      .in("supplier_id", touchedSupplierIds)
+      .neq("opportunity_id", opportunityId)
+      .is("opportunities.archived_at", null);
+
+    // Group by opportunity to find each opp's #1
+    const byOpp: Record<string, { supplier_id: string; score: number; rank: number }[]> = {};
+    for (const r of (protectedRows ?? []) as any[]) {
+      (byOpp[r.opportunity_id] ??= []).push({
+        supplier_id: r.supplier_id,
+        score: r.supplier_score ?? 0,
+        rank: r.ranked_position ?? 999,
+      });
+    }
+    const protectedIds = new Set<string>();
+    for (const oppId of Object.keys(byOpp)) {
+      const sorted = byOpp[oppId].slice().sort(
+        (a, b) => b.score - a.score || a.rank - b.rank
+      );
+      if (sorted[0]) protectedIds.add(sorted[0].supplier_id);
+    }
+
+    // Archive suppliers from this scan that aren't #1 here and aren't protected elsewhere
+    const toArchive = touchedSupplierIds.filter(
+      sid => sid !== topSupplierId && !protectedIds.has(sid)
+    );
+    if (toArchive.length > 0) {
+      await supabase
+        .from("suppliers")
+        .update({ archived_at: new Date().toISOString() })
+        .in("id", toArchive)
+        .eq("user_id", userId);
+    }
+  }
+
   // 9. Update scan
   await supabase.from("supplier_scans").update({
     status: "complete",

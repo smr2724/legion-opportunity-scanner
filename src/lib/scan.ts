@@ -190,6 +190,13 @@ export async function runScan(args: RunScanArgs) {
   const threshold = scoreToThreshold(score.legion_score);
   const initialStatus: string = threshold === "deep_dive" ? "deep_dive" : threshold === "review" ? "review" : threshold === "watchlist" ? "watchlist" : "reject";
 
+  // Auto-archive: keep active only if it meets the strict-winner bar
+  // (legion_score >= 80 AND top_10_avg_reviews < 500). Everything else is
+  // archived on insert so the dashboard stays clean. Steve can restore manually.
+  const isWinner =
+    score.legion_score >= 80 && (score.metrics.top_10_avg_reviews ?? Infinity) < 500;
+  const archivedAt = isWinner ? null : new Date().toISOString();
+
   const { data: opp, error: oppErr } = await supabase
     .from("opportunities")
     .insert({
@@ -221,6 +228,7 @@ export async function runScan(args: RunScanArgs) {
       economics_notes: memo?.economics_notes,
       partner_notes: memo?.partner_notes,
       last_scanned_at: new Date().toISOString(),
+      archived_at: archivedAt,
     })
     .select()
     .single();
