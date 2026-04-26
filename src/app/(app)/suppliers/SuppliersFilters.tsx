@@ -10,10 +10,13 @@ interface Props {
     amazon?: string;
     channel?: string;
     min?: string;
+    archived?: string;
   };
+  archivedCount?: number;
+  showArchived?: boolean;
 }
 
-export default function SuppliersFilters({ initial }: Props) {
+export default function SuppliersFilters({ initial, archivedCount, showArchived }: Props) {
   const router = useRouter();
   const sp = useSearchParams();
   const [, startTransition] = useTransition();
@@ -33,12 +36,20 @@ export default function SuppliersFilters({ initial }: Props) {
     if (amazon) next.set("amazon", amazon);
     if (channel) next.set("channel", channel);
     if (min && min !== "0") next.set("min", min);
+    if (showArchived) next.set("archived", "1");
     startTransition(() => router.push(`/suppliers?${next.toString()}`));
   }
 
   function reset() {
     setQ(""); setGeo(""); setPath(""); setAmazon(""); setChannel(""); setMin("0");
-    startTransition(() => router.push("/suppliers"));
+    const next = showArchived ? "?archived=1" : "";
+    startTransition(() => router.push(`/suppliers${next}`));
+  }
+
+  function toggleArchived() {
+    const next = new URLSearchParams(sp.toString());
+    if (showArchived) next.delete("archived"); else next.set("archived", "1");
+    startTransition(() => router.push(`/suppliers?${next.toString()}`));
   }
 
   return (
@@ -87,9 +98,20 @@ export default function SuppliersFilters({ initial }: Props) {
           <option value="80">Score 80+</option>
         </select>
       </div>
-      <div className="flex gap-2 mt-2">
+      <div className="flex gap-2 mt-2 items-center">
         <button className="btn btn-primary" onClick={apply}>Apply filters</button>
         <button className="btn btn-ghost" onClick={reset}>Reset</button>
+        <div className="flex-1" />
+        <button
+          type="button"
+          onClick={toggleArchived}
+          className={`btn text-xs ${showArchived ? "btn-primary" : ""}`}
+          title={showArchived ? "Back to active" : "View archived suppliers"}
+        >
+          {showArchived
+            ? "← Show active"
+            : `Show archived${archivedCount ? ` (${archivedCount})` : ""}`}
+        </button>
       </div>
     </div>
   );

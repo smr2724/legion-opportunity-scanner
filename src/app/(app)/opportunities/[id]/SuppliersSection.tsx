@@ -47,7 +47,8 @@ export default async function SuppliersSection({ opportunityId }: { opportunityI
         suppliers (
           id, company_name, website, domain,
           hq_city, hq_state, hq_country, geo_tier,
-          sells_on_amazon, channel_type, contact_email, contact_phone, contact_form_url
+          sells_on_amazon, channel_type, contact_email, contact_phone, contact_form_url,
+          archived_at
         )
       `)
       .eq("opportunity_id", opportunityId)
@@ -70,7 +71,8 @@ export default async function SuppliersSection({ opportunityId }: { opportunityI
       .maybeSingle(),
   ]);
 
-  const list = pairs ?? [];
+  // Hide pairs whose supplier is archived
+  const list = (pairs ?? []).filter((p: any) => p.suppliers && !p.suppliers.archived_at);
   const partners = list.filter((p: any) => p.recommended_path === "partner").length;
   const cleanCount = list.filter((p: any) => p.suppliers && !p.suppliers.sells_on_amazon).length;
 

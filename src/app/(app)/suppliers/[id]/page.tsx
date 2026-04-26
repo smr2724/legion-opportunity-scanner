@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import SupplierArchiveButton from "./SupplierArchiveButton";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +83,11 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
                 ? <span className="pill pill-reject">On Amazon</span>
                 : <span className="pill pill-deep">Not on Amazon</span>}
               <span className="pill pill-new">{prettyChannel(supplier.channel_type)}</span>
+              {supplier.archived_at && (
+                <span className="text-[11px] uppercase tracking-wide px-2 py-0.5 rounded border border-[var(--border)] text-[var(--text-muted)]">
+                  Archived
+                </span>
+              )}
             </div>
             <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">{supplier.company_name}</h1>
             <div className="text-sm text-[var(--text-muted)] mt-1">
@@ -91,10 +97,13 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
               <p className="text-sm leading-relaxed mt-3 max-w-2xl">{supplier.description}</p>
             )}
           </div>
-          <div className="text-right">
-            <div className="text-[11px] text-[var(--text-muted)] uppercase tracking-wide">Best score</div>
-            <div className="text-4xl font-semibold tabular-nums" style={{ color: bestScore >= 70 ? "var(--accent)" : undefined }}>{bestScore}</div>
-            <div className="text-xs text-[var(--text-muted)]">/ 100</div>
+          <div className="flex flex-col items-end gap-3">
+            <div className="text-right">
+              <div className="text-[11px] text-[var(--text-muted)] uppercase tracking-wide">Best score</div>
+              <div className="text-4xl font-semibold tabular-nums" style={{ color: bestScore >= 70 ? "var(--accent)" : undefined }}>{bestScore}</div>
+              <div className="text-xs text-[var(--text-muted)]">/ 100</div>
+            </div>
+            <SupplierArchiveButton id={supplier.id} archived={!!supplier.archived_at} />
           </div>
         </div>
       </div>

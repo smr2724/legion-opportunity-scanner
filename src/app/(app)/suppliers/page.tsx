@@ -11,6 +11,7 @@ interface SearchParams {
   amazon?: string;
   channel?: string;
   min?: string;
+  archived?: string;
 }
 
 const PATH_LABEL: Record<string, string> = {
@@ -37,6 +38,7 @@ const GEO_LABEL: Record<string, string> = {
 export default async function SuppliersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const supabase = createSupabaseServerClient();
   const sp = await searchParams;
+  const showArchived = sp.archived === "1";
 
   // Pull suppliers with their best opportunity_supplier pairing for ranking
   let query = supabase
@@ -46,15 +48,21 @@ export default async function SuppliersPage({ searchParams }: { searchParams: Pr
       geo_tier, geo_score, sells_on_amazon, amazon_evidence, channel_type,
       is_manufacturer, turnkey_score, quality_score, reachability_score,
       product_lines, industries, description, founded_year, employee_estimate,
-      created_at,
+      created_at, archived_at,
       opportunity_suppliers (
         id, supplier_score, recommended_path, ranked_position, fit_summary,
         opportunity_id,
-        opportunities ( id, name, legion_score, recommended_path )
+        opportunities ( id, name, legion_score, recommended_path, archived_at )
       )
     `)
     .order("created_at", { ascending: false })
     .limit(500);
+
+  if (showArchived) {
+    query = query.not("archived_at", "is", null);
+  } else {
+    query = query.is("archived_at", null);
+  }
 
   if (sp.q) {
     query = query.or(`company_name.ilike.%${sp.q}%,domain.ilike.%${sp.q}%`);
@@ -66,19 +74,30 @@ export default async function SuppliersPage({ searchParams }: { searchParams: Pr
 
   const { data: suppliersRaw } = await query;
 
+  // Archived count for the toggle badge
+  const { count: archivedCount } = await supabase
+    .from("suppliers")
+    .select("id", { count: "exact", head: true })
+    .not("archived_at", "is", null);
+
   const minScore = sp.min ? parseInt(sp.min, 10) : 0;
   const pathFilter = sp.path;
 
-  // Compute "best score" across all opportunities the supplier matched, and best path
+  // Compute "best score" across opportunities. Prefer pairs whose opportunity is active.
   const suppliers = (suppliersRaw ?? []).map((s: any) => {
     const pairs = s.opportunity_suppliers ?? [];
-    const bestPair = pairs.reduce((best: any, p: any) =>
-      !best || p.supplier_score > best.supplier_score ? p : best, null);
+    const activePairs = pairs.filter((p: any) => p.opportunities && !p.opportunities.archived_at);
+    const ranked = (activePairs.length ? activePairs : pairs).slice().sort(
+      (a: any, b: any) => (b.supplier_score ?? 0) - (a.supplier_score ?? 0)
+    );
+    const bestPair = ranked[0] ?? null;
     return {
       ...s,
       best_score: bestPair?.supplier_score ?? 0,
       best_path: bestPair?.recommended_path ?? "—",
       pair_count: pairs.length,
+      active_pair_count: activePairs.length,
+      active_pairs: activePairs,
       best_pair: bestPair,
     };
   })
@@ -96,9 +115,13 @@ export default async function SuppliersPage({ searchParams }: { searchParams: Pr
     <div className="p-4 md:p-6 max-w-[1500px] mx-auto">
       <div className="mb-5 flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold tracking-tight">Suppliers</h1>
+          <h1 className="text-xl md:text-2xl font-semibold tracking-tight">
+            {showArchived ? "Archived Suppliers" : "Suppliers"}
+          </h1>
           <p className="text-sm text-[var(--text-muted)] mt-1">
-            Discovered through automated supplier scanning. Higher score = better path-of-least-resistance fit (not on Amazon, manufacturer-grade, near Las Vegas).
+            {showArchived
+              ? "Viewing archived suppliers. Click Restore on a supplier to bring it back."
+              : "Top-rated supplier per active opportunity. Higher score = better path-of-least-resistance fit (not on Amazon, manufacturer-grade, near Las Vegas)."}
           </p>
         </div>
       </div>
@@ -111,7 +134,7 @@ export default async function SuppliersPage({ searchParams }: { searchParams: Pr
         <StatCard label="Tier 1 (NV / adjacent)" value={tier1Count} />
       </div>
 
-      <SuppliersFilters initial={sp} />
+      <SuppliersFilters initial={sp} archivedCount={archivedCount ?? 0} showArchived={showArchived} />
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
@@ -125,7 +148,7 @@ export default async function SuppliersPage({ searchParams }: { searchParams: Pr
                 <th>On Amazon?</th>
                 <th>Best path</th>
                 <th>Top opportunity match</th>
-                <th className="numeric">Matches</th>
+                <th className="numeric">Active opps</th>
               </tr>
             </thead>
             <tbody>
@@ -165,7 +188,7 @@ export default async function SuppliersPage({ searchParams }: { searchParams: Pr
                         ? <Link href={`/opportunities/${opp.id}`} className="hover:underline text-xs">{opp.name}</Link>
                         : <span className="text-[var(--text-muted)] text-xs">—</span>}
                     </td>
-                    <td className="numeric text-xs">{s.pair_count}</td>
+                    <td className="numeric text-xs">{s.active_pair_count}</td>
                   </tr>
                 );
               })}
