@@ -28,7 +28,7 @@ export default function HomePage() {
         <div className="container">
           <div className="m-stats">
             <div className="m-stat">
-              <div className="num">$35M+</div>
+              <div className="num">$60M+</div>
               <div className="lbl">Lifetime Amazon sales operated across partner brands</div>
             </div>
             <div className="m-stat">

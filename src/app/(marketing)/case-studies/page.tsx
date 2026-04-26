@@ -58,7 +58,7 @@ export default function CaseStudiesPage() {
             <hr style={{ border: 0, borderTop: "1px solid var(--m-rule-soft)", margin: "28px 0" }} />
 
             <div className="eyebrow">Lifetime channel value</div>
-            <div className="result" style={{ marginTop: 14 }}>$35M+</div>
+            <div className="result" style={{ marginTop: 14 }}>$60M+</div>
             <div style={{ fontSize: 14, color: "var(--m-muted)", marginTop: 6 }}>Across the portfolio of brands</div>
 
             <hr style={{ border: 0, borderTop: "1px solid var(--m-rule-soft)", margin: "28px 0" }} />
