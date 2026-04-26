@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Footer() {
   const year = new Date().getFullYear();
@@ -7,8 +8,17 @@ export default function Footer() {
       <div className="container">
         <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 32 }} className="m-footer-grid">
           <div>
-            <div style={{ fontSize: 18, color: "#fff", fontWeight: 600, letterSpacing: "-0.02em", marginBottom: 12 }}>
-              Rolle Management Group
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <Image
+                src="/rmg-logo-white.png"
+                alt=""
+                width={36}
+                height={36}
+                style={{ width: 36, height: 36, display: "block", objectFit: "contain" }}
+              />
+              <span style={{ fontSize: 18, color: "#fff", fontWeight: 600, letterSpacing: "-0.02em" }}>
+                Rolle Management Group
+              </span>
             </div>
             <p style={{ maxWidth: "44ch", color: "#a4adb8", lineHeight: 1.55, fontSize: 14 }}>
               We partner with established manufacturers to find overlooked
