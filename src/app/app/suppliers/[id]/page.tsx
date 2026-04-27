@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import SupplierArchiveButton from "./SupplierArchiveButton";
+import ContactsSection from "./ContactsSection";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,20 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
   const bestPath = pairs?.[0]?.recommended_path ?? "—";
   const bestScore = pairs?.[0]?.supplier_score ?? 0;
 
+  // CRM data — contacts saved for this supplier and any draft threads.
+  const { data: contacts } = await supabase
+    .from("contacts")
+    .select("id, full_name, title, email, email_status, linkedin_url, ai_priority_rank, ai_priority_reason, enriched_at")
+    .eq("supplier_id", id)
+    .is("archived_at", null)
+    .order("ai_priority_rank", { ascending: true });
+
+  const { data: threads } = await supabase
+    .from("outreach_threads")
+    .select("id, contact_id, status, subject, outlook_web_link")
+    .eq("supplier_id", id)
+    .order("created_at", { ascending: false });
+
   return (
     <div className="p-4 md:p-6 max-w-[1300px] mx-auto">
       <div className="mb-3">
@@ -107,6 +122,13 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
           </div>
         </div>
       </div>
+
+      {/* CRM: Contacts & Outreach */}
+      <ContactsSection
+        supplierId={id}
+        initialContacts={(contacts ?? []) as any}
+        initialThreads={(threads ?? []) as any}
+      />
 
       {/* Quick facts */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">

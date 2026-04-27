@@ -2,17 +2,17 @@
 import { useEffect, useState } from "react";
 import { Check, X, RefreshCw } from "lucide-react";
 
-type ProviderKey = "supabase" | "dataforseo" | "keepa" | "openai";
+type ProviderKey = "supabase" | "dataforseo" | "keepa" | "openai" | "apollo" | "outlook";
 
 export default function SettingsPage() {
   const [configured, setConfigured] = useState<Record<ProviderKey, boolean>>({
-    supabase: true, dataforseo: false, keepa: false, openai: false,
+    supabase: true, dataforseo: false, keepa: false, openai: false, apollo: false, outlook: false,
   });
   const [status, setStatus] = useState<Record<ProviderKey, any>>({
-    supabase: null, dataforseo: null, keepa: null, openai: null,
+    supabase: null, dataforseo: null, keepa: null, openai: null, apollo: null, outlook: null,
   });
   const [loading, setLoading] = useState<Record<ProviderKey, boolean>>({
-    supabase: false, dataforseo: false, keepa: false, openai: false,
+    supabase: false, dataforseo: false, keepa: false, openai: false, apollo: false, outlook: false,
   });
 
   useEffect(() => {
@@ -39,7 +39,9 @@ export default function SettingsPage() {
     { key: "supabase", name: "Supabase", desc: "Auth, database, storage." },
     { key: "dataforseo", name: "DataForSEO", desc: "Amazon keyword volume + SERP / product data." },
     { key: "keepa", name: "Keepa", desc: "ASIN enrichment, BSR, price and review history." },
-    { key: "openai", name: "OpenAI", desc: "Skeptical analyst memos." },
+    { key: "openai", name: "OpenAI", desc: "Analyst memos, supplier scoring, contact ranking, outreach drafts." },
+    { key: "apollo", name: "Apollo.io", desc: "Find people at supplier companies; reveal verified emails on enrich." },
+    { key: "outlook", name: "Outlook (Microsoft Graph)", desc: "Create draft emails in your inbox. Falls back to mailto: if not configured." },
   ];
 
   return (
@@ -72,7 +74,9 @@ export default function SettingsPage() {
                         {r.key === "keepa" && s.tokens_left != null ? `Tokens: ${s.tokens_left}` : null}
                         {r.key === "openai" && s.models_count ? `${s.models_count} models available` : null}
                         {r.key === "supabase" && s.user_email ? `Signed in: ${s.user_email}` : null}
-                        {!s.money && !s.tokens_left && !s.models_count && !s.user_email && "OK"}
+                        {r.key === "outlook" && s.user_email ? `Mailbox: ${s.user_email}` : null}
+                        {r.key === "apollo" && "Search OK"}
+                        {!s.money && !s.tokens_left && !s.models_count && !s.user_email && r.key !== "apollo" && "OK"}
                       </div>
                     ) : (
                       <div className="flex items-center gap-1.5 text-[var(--red)]"><X size={12} /> {s.error ?? "Failed"}</div>
@@ -99,6 +103,8 @@ export default function SettingsPage() {
           <li>KEEPA_API_KEY</li>
           <li>KEEPA_DOMAIN_ID (default 1 = Amazon US)</li>
           <li>OPENAI_API_KEY</li>
+          <li>APOLLO_API_KEY</li>
+          <li>OUTLOOK_ACCESS_TOKEN <span className="text-[var(--text-muted)] not-italic">(optional — falls back to mailto:)</span></li>
         </ul>
       </div>
     </div>

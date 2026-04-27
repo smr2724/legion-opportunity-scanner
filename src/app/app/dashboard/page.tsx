@@ -50,6 +50,29 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
 
   const { data: opps } = await q.limit(500);
 
+  // Top supplier per opportunity (highest supplier_score, supplier not archived).
+  // We fetch in one query and dedupe in memory keyed by opportunity_id.
+  const oppIds = (opps ?? []).map(o => o.id);
+  const topSupplierByOpp: Record<string, { id: string; company_name: string; score: number }> = {};
+  if (oppIds.length > 0) {
+    const { data: pairs } = await supabase
+      .from("opportunity_suppliers")
+      .select("opportunity_id, supplier_score, suppliers!inner(id, company_name, archived_at)")
+      .in("opportunity_id", oppIds)
+      .order("supplier_score", { ascending: false });
+    for (const p of (pairs ?? []) as any[]) {
+      const sup = p.suppliers;
+      if (!sup || sup.archived_at) continue;
+      if (!topSupplierByOpp[p.opportunity_id]) {
+        topSupplierByOpp[p.opportunity_id] = {
+          id: sup.id,
+          company_name: sup.company_name,
+          score: p.supplier_score ?? 0,
+        };
+      }
+    }
+  }
+
   // Category list for filters (from current view — active or archived)
   let catQ = supabase.from("opportunities").select("category, status");
   catQ = showArchived ? catQ.not("archived_at", "is", null) : catQ.is("archived_at", null);
@@ -105,12 +128,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
                 <th className="numeric">Top10 Rate</th>
                 <th className="numeric">Avg Price</th>
                 <th>Path</th>
+                <th>Top Supplier</th>
                 <th>Status</th>
                 <th>Scanned</th>
               </tr>
             </thead>
             <tbody>
-              {(opps ?? []).map(o => (
+              {(opps ?? []).map(o => {
+                const topSup = topSupplierByOpp[o.id];
+                return (
                 <tr key={o.id} className="cursor-pointer" onClick={undefined}>
                   <td>
                     <Link href={`/app/opportunities/${o.id}`}><LegionScore value={o.legion_score} size="md" /></Link>
@@ -128,13 +154,23 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
                   <td className="numeric">{o.top_10_avg_rating != null ? Number(o.top_10_avg_rating).toFixed(2) : "—"}</td>
                   <td className="numeric">{formatMoney(o.avg_price)}</td>
                   <td><PathPill value={o.recommended_path} /></td>
+                  <td>
+                    {topSup ? (
+                      <Link href={`/app/suppliers/${topSup.id}`} className="text-xs hover:underline">
+                        <span className="font-medium">{topSup.company_name}</span>
+                        <span className="text-[var(--text-muted)] ml-1.5 tabular-nums">{topSup.score}</span>
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-[var(--text-muted)]">—</span>
+                    )}
+                  </td>
                   <td><StatusPill value={o.status} /></td>
                   <td className="text-xs text-[var(--text-muted)]">{formatDate(o.last_scanned_at ?? o.created_at)}</td>
                 </tr>
-              ))}
+              );})}
               {!opps?.length && (
                 <tr>
-                  <td colSpan={11} className="text-center py-10 text-[var(--text-muted)]">
+                  <td colSpan={12} className="text-center py-10 text-[var(--text-muted)]">
                     No opportunities yet. <Link href="/app/scan" className="underline">Run your first scan</Link>.
                   </td>
                 </tr>

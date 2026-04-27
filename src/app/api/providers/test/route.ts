@@ -3,6 +3,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { testDataForSEO, isDataForSEOConfigured } from "@/lib/dataforseo";
 import { testKeepa, isKeepaConfigured } from "@/lib/keepa";
 import { testOpenAI, isOpenAIConfigured } from "@/lib/openai";
+import { testApollo, isApolloConfigured } from "@/lib/apollo";
+import { testOutlook, isOutlookConfigured } from "@/lib/outlook";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +27,10 @@ export async function POST(req: Request) {
     result = isKeepaConfigured() ? await testKeepa() : { ok: false, error: "not configured" };
   } else if (provider === "openai") {
     result = isOpenAIConfigured() ? await testOpenAI() : { ok: false, error: "not configured" };
+  } else if (provider === "apollo") {
+    result = isApolloConfigured() ? await testApollo() : { ok: false, error: "not configured" };
+  } else if (provider === "outlook") {
+    result = isOutlookConfigured() ? await testOutlook() : { ok: false, error: "not configured" };
   }
 
   return NextResponse.json(result);
@@ -37,6 +43,8 @@ export async function GET() {
       dataforseo: isDataForSEOConfigured(),
       keepa: isKeepaConfigured(),
       openai: isOpenAIConfigured(),
+      apollo: isApolloConfigured(),
+      outlook: isOutlookConfigured(),
       supabase: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
     },
   });

@@ -112,6 +112,151 @@ function normalizeMemo(raw: any, input: MemoInput): MemoOutput {
   };
 }
 
+// =====================================================================
+//  CRM: rank Apollo candidates and pick the 3 best contacts to enrich.
+// =====================================================================
+
+export interface RankInput {
+  companyName: string;
+  productContext: string;          // "Concrete remover, $1M+/yr Amazon channel"
+  candidates: { id: string; name?: string; title?: string; seniority?: string; departments?: string[] }[];
+}
+
+export interface RankedPick {
+  apollo_id: string;
+  rank: number;          // 1, 2, 3
+  reason: string;
+}
+
+const RANK_SYSTEM_PROMPT = `You are picking the 3 best people at a manufacturer for Steve Rolle to email about an Amazon partnership. Steve operates the Amazon channel for established manufacturers — he can buy wholesale, run the channel under their brand, or build a private label.
+
+Target order of preference:
+1. Owner / Founder / President / CEO at small to mid-size manufacturers (they make the call themselves).
+2. VP Sales / Sales Director / Director of Business Development / Director of Channel.
+3. VP / Director of E-commerce / Marketing / Digital — only if no clear sales leader exists.
+
+Avoid: HR, IT, finance, individual sales reps without manager titles, support, interns, marketing coordinators.
+
+Return JSON with exact key 'picks' = array of 3 objects: { apollo_id, rank (1-3), reason (one sentence, why they are the right person to email) }. Choose only from the candidates given. If fewer than 3 valid candidates exist, return as many as you can.`;
+
+export async function rankContacts(input: RankInput): Promise<RankedPick[]> {
+  if (!process.env.OPENAI_API_KEY) return heuristicRank(input.candidates);
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  try {
+    const resp = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: RANK_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: `Company: ${input.companyName}\nProduct context: ${input.productContext}\n\nCandidates:\n${JSON.stringify(input.candidates, null, 2)}`,
+        },
+      ],
+    });
+    const txt = resp.choices?.[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(txt);
+    const picks = Array.isArray(parsed?.picks) ? parsed.picks : [];
+    return picks
+      .filter((p: any) => p && typeof p.apollo_id === "string")
+      .slice(0, 3)
+      .map((p: any, i: number) => ({
+        apollo_id: p.apollo_id,
+        rank: Number(p.rank ?? i + 1),
+        reason: String(p.reason ?? "").slice(0, 280),
+      }));
+  } catch {
+    return heuristicRank(input.candidates);
+  }
+}
+
+function heuristicRank(candidates: RankInput["candidates"]): RankedPick[] {
+  // Fallback: simple keyword scoring when OpenAI is unavailable.
+  const score = (t = "") => {
+    const s = t.toLowerCase();
+    if (/\b(owner|founder|president|ceo)\b/.test(s)) return 100;
+    if (/\b(vp|vice president).*\b(sales|business)/.test(s)) return 90;
+    if (/\b(director|head).*\b(sales|business)/.test(s)) return 85;
+    if (/\bsales manager\b/.test(s)) return 70;
+    if (/\b(vp|director|head).*\b(e-?commerce|ecommerce|digital)/.test(s)) return 65;
+    if (/\bmarketing director\b/.test(s)) return 50;
+    return 20;
+  };
+  return [...candidates]
+    .map(c => ({ c, s: score(c.title) }))
+    .sort((a, b) => b.s - a.s)
+    .slice(0, 3)
+    .map(({ c }, i) => ({
+      apollo_id: c.id,
+      rank: i + 1,
+      reason: `${c.title ?? "Contact"} — heuristic pick (configure OpenAI for AI reasoning).`,
+    }));
+}
+
+// =====================================================================
+//  CRM: draft outreach email per contact using product + supplier context.
+// =====================================================================
+
+export interface OutreachDraftInput {
+  contactName: string;
+  contactFirstName?: string;
+  contactTitle?: string;
+  companyName: string;
+  productKeyword: string;        // "concrete remover"
+  productCategory?: string;
+  recommendedPath?: string;      // partner | private_label | wholesale_resell
+  legionScore?: number;
+  reviewBenchmark?: number;      // top-10 avg reviews
+  monthlyVolume?: number;
+}
+
+export interface OutreachDraftOutput {
+  subject: string;
+  body: string;
+}
+
+const OUTREACH_SYSTEM_PROMPT = `You write short, plain, operator-to-operator outreach emails for Steve Rolle, founder of Rolle Management Group. Steve has done $60M+ in lifetime Amazon sales for established manufacturers (hospitality consumables grew $0 → ~$10M/yr; Legion Chemicals concrete remover $0 → $1M+ ARR in 10 months).
+
+Tone: a manufacturer talking to another manufacturer. No agency-speak. No buzzwords. No flattery. Short sentences. Specific numbers when relevant. Lowercase subject line. 80-130 words body. End with a soft CTA — "Worth a 15-min call this week?" or similar.
+
+Return JSON with exact keys: subject, body. Do NOT include greetings like "Dear Sir/Madam". Use first name if provided. Sign as "Steve Rolle / Rolle Management Group / steve@rollemanagementgroup.com".`;
+
+export async function generateOutreachDraft(input: OutreachDraftInput): Promise<OutreachDraftOutput> {
+  if (!process.env.OPENAI_API_KEY) return placeholderOutreach(input);
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  try {
+    const resp = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.5,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: OUTREACH_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: `Write an outreach email for:\n${JSON.stringify(input, null, 2)}`,
+        },
+      ],
+    });
+    const txt = resp.choices?.[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(txt);
+    return {
+      subject: String(parsed.subject ?? `${input.productKeyword} on amazon — quick question`).slice(0, 200),
+      body: String(parsed.body ?? placeholderOutreach(input).body),
+    };
+  } catch {
+    return placeholderOutreach(input);
+  }
+}
+
+function placeholderOutreach(input: OutreachDraftInput): OutreachDraftOutput {
+  const first = input.contactFirstName ?? input.contactName.split(" ")[0] ?? "there";
+  return {
+    subject: `${input.productKeyword} on amazon — quick question`,
+    body: `Hi ${first},\n\nI run Rolle Management Group — we operate the Amazon and marketplace channel for established manufacturers like ${input.companyName}. Lifetime, we've moved $60M+ across partner brands.\n\nI noticed your ${input.productKeyword} category and wanted to reach out. Most manufacturers I talk to either don't have anyone running Amazon as a real business, or have resellers chewing up the brand. We can either operate the channel under your brand (done-for-you), buy wholesale and run private label, or just be a clean authorized reseller.\n\nWorth a 15-minute call this week to see if there's a fit?\n\nSteve Rolle\nRolle Management Group\nsteve@rollemanagementgroup.com`,
+  };
+}
+
 function placeholderMemo(input: MemoInput): MemoOutput {
   const { scores, metrics, seedKeyword } = input;
   return {

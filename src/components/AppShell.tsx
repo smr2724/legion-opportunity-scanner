@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, Plus, List, Factory, Settings, LogOut, Menu, X, Zap, Handshake, Layers, History } from "lucide-react";
+import { LayoutDashboard, Plus, List, Factory, Settings, LogOut, Menu, X, Zap, Handshake, Layers, History, Users } from "lucide-react";
 
 const NAV = [
   { href: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -11,6 +11,7 @@ const NAV = [
   { href: "/app/sweeps", label: "Sweeps", icon: History },
   { href: "/app/review", label: "Review Queue", icon: List },
   { href: "/app/suppliers", label: "Suppliers", icon: Handshake },
+  { href: "/app/crm", label: "CRM", icon: Users },
   { href: "/app/manufacturers", label: "Manufacturers", icon: Factory },
   { href: "/app/settings", label: "Settings", icon: Settings },
 ];
