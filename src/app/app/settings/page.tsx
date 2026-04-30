@@ -5,7 +5,9 @@ import { Check, X, RefreshCw, Mail, LogOut, ExternalLink } from "lucide-react";
 
 type ProviderKey = "supabase" | "dataforseo" | "keepa" | "openai" | "apollo" | "outlook";
 
+type OutlookMode = "oauth" | "legacy_env" | "none";
 interface OutlookStatus {
+  mode: OutlookMode;
   connected: boolean;
   account_email: string | null;
   oauth_app_configured: boolean;
@@ -20,11 +22,8 @@ export default function SettingsPage() {
   const [configured, setConfigured] = useState<Record<ProviderKey, boolean>>({
     supabase: true, dataforseo: false, keepa: false, openai: false, apollo: false, outlook: false,
   });
-  const [outlookStatus, setOutlookStatus] = useState<OutlookStatus>({
-    connected: false,
-    account_email: null,
-    oauth_app_configured: false,
-  });
+  // null = still loading. Avoid flashing "Not connected" before the fetch completes.
+  const [outlookStatus, setOutlookStatus] = useState<OutlookStatus | null>(null);
   const [status, setStatus] = useState<Record<ProviderKey, any>>({
     supabase: null, dataforseo: null, keepa: null, openai: null, apollo: null, outlook: null,
   });
@@ -122,8 +121,12 @@ export default function SettingsPage() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="font-medium">Outlook mailbox</h2>
-              {outlookStatus.connected ? (
+              {outlookStatus === null ? (
+                <span className="pill" style={{ fontSize: 10 }}>Checking…</span>
+              ) : outlookStatus.mode === "oauth" ? (
                 <span className="pill pill-launch" style={{ fontSize: 10 }}>Connected</span>
+              ) : outlookStatus.mode === "legacy_env" ? (
+                <span className="pill pill-deep_dive" style={{ fontSize: 10 }}>Legacy token — expires hourly</span>
               ) : (
                 <span className="pill pill-reject" style={{ fontSize: 10 }}>Not connected</span>
               )}
@@ -131,25 +134,27 @@ export default function SettingsPage() {
             <div className="text-xs text-[var(--text-muted)] mt-1">
               Used to drop the 5-step outreach emails as drafts in your Outlook inbox. Connect once — we store an encrypted refresh token and renew access automatically.
             </div>
-            {outlookStatus.connected && outlookStatus.account_email && (
+            {outlookStatus?.mode === "oauth" && outlookStatus.account_email && (
               <div className="text-sm mt-2">
                 <span className="text-[var(--text-muted)]">Signed in as: </span>
                 <span className="font-mono">{outlookStatus.account_email}</span>
               </div>
             )}
-            {!outlookStatus.oauth_app_configured && (
+            {outlookStatus?.mode === "legacy_env" && (
               <div className="text-xs text-[var(--red)] mt-2">
-                MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET not set in Vercel — OAuth is unavailable. Falling back to OUTLOOK_ACCESS_TOKEN env var if set.
+                You’re running on a manually-pasted OUTLOOK_ACCESS_TOKEN that expires every ~60 minutes. Click <strong>Connect Outlook</strong> below to switch to the auto-refreshing OAuth flow.
+              </div>
+            )}
+            {outlookStatus && !outlookStatus.oauth_app_configured && (
+              <div className="text-xs text-[var(--red)] mt-2">
+                MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET not set in Vercel — OAuth is unavailable.
               </div>
             )}
           </div>
           <div className="flex gap-2 flex-wrap">
-            {outlookStatus.connected ? (
+            {outlookStatus?.mode === "oauth" ? (
               <>
-                <a
-                  className="btn"
-                  href="/api/auth/microsoft/start"
-                >
+                <a className="btn" href="/api/auth/microsoft/start">
                   <RefreshCw size={14} /> Reconnect
                 </a>
                 <button
@@ -161,10 +166,7 @@ export default function SettingsPage() {
                 </button>
               </>
             ) : (
-              <a
-                className="btn btn-primary"
-                href="/api/auth/microsoft/start"
-              >
+              <a className="btn btn-primary" href="/api/auth/microsoft/start">
                 <ExternalLink size={14} /> Connect Outlook
               </a>
             )}

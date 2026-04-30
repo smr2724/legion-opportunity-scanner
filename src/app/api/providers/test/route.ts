@@ -41,18 +41,22 @@ export async function GET() {
   const supabase = createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Per-user OAuth-connected check
-  let outlookConnected = false;
+  // Differentiate three states for clarity:
+  //   oauth_connected  — user has finished OAuth, stored refresh token
+  //   legacy_env       — only the (expiring) OUTLOOK_ACCESS_TOKEN env var is set
+  //   not_connected    — neither
+  let mode: "oauth" | "legacy_env" | "none" = "none";
   let outlookEmail: string | null = null;
   if (user) {
     const stored = await getStoredToken(user.id);
     if (stored) {
-      outlookConnected = true;
+      mode = "oauth";
       outlookEmail = stored.account_email;
     } else if (process.env.OUTLOOK_ACCESS_TOKEN) {
-      outlookConnected = true; // legacy env-var token
+      mode = "legacy_env";
     }
   }
+  const outlookConnected = mode === "oauth";
 
   return NextResponse.json({
     configured: {
@@ -64,6 +68,7 @@ export async function GET() {
       supabase: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
     },
     outlook: {
+      mode,
       connected: outlookConnected,
       account_email: outlookEmail,
       oauth_app_configured: isMicrosoftOAuthConfigured(),

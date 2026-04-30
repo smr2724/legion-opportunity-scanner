@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
   const errorDescription = url.searchParams.get("error_description");
 
   if (error) {
+    console.error("[ms-oauth] callback error from Microsoft:", error, errorDescription);
     return redirectToSettings(req, {
       ms_status: "error",
       ms_error: errorDescription || error,
@@ -37,12 +38,14 @@ export async function GET(req: NextRequest) {
   }
 
   if (!code) {
+    console.error("[ms-oauth] callback missing code. URL:", url.toString());
     return redirectToSettings(req, { ms_status: "error", ms_error: "Missing authorization code" });
   }
 
   // CSRF check
   const cookieState = req.cookies.get("ms_oauth_state")?.value;
   if (!cookieState || !state || cookieState !== state) {
+    console.error("[ms-oauth] state mismatch. cookie:", cookieState, "query:", state);
     return redirectToSettings(req, {
       ms_status: "error",
       ms_error: "OAuth state mismatch — please try connecting again",
@@ -54,15 +57,25 @@ export async function GET(req: NextRequest) {
       code,
       origin: req.nextUrl.origin,
     });
+    console.log(
+      "[ms-oauth] token exchange ok. expires_in:",
+      tokens.expires_in,
+      "has_refresh:",
+      !!tokens.refresh_token,
+      "scope:",
+      tokens.scope,
+    );
 
     if (!tokens.refresh_token) {
       return redirectToSettings(req, {
         ms_status: "error",
-        ms_error: "No refresh token returned. Make sure offline_access scope is granted.",
+        ms_error:
+          "No refresh token returned. Make sure offline_access scope is granted in Azure.",
       });
     }
 
     const me = await fetchGraphMe(tokens.access_token);
+    console.log("[ms-oauth] Graph /me ok:", me.email);
 
     await saveOauthToken({
       userId: user.id,
@@ -72,11 +85,13 @@ export async function GET(req: NextRequest) {
       scope: tokens.scope ?? null,
       expiresInSec: tokens.expires_in,
     });
+    console.log("[ms-oauth] token saved for user", user.id);
 
     const res = redirectToSettings(req, { ms_status: "connected" });
     res.cookies.delete("ms_oauth_state");
     return res;
   } catch (e: any) {
+    console.error("[ms-oauth] callback exception:", e?.message ?? e);
     return redirectToSettings(req, {
       ms_status: "error",
       ms_error: String(e?.message ?? e).slice(0, 300),
