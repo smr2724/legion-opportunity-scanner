@@ -24,7 +24,7 @@ export async function POST(req: Request) {
 
   const { data: supplier } = await supabase
     .from("suppliers")
-    .select("id, company_name")
+    .select("id, company_name, sells_on_amazon")
     .eq("id", supplier_id)
     .eq("user_id", user.id)
     .single();
@@ -72,12 +72,16 @@ export async function POST(req: Request) {
       contactFirstName: c.first_name ?? undefined,
       contactTitle: c.title ?? undefined,
       companyName: supplier.company_name ?? "your company",
+      // Critical: tell the model whether THIS supplier is on Amazon. If null/false, the pitch frames
+      // category metrics as competitor activity, not the supplier's sales.
+      supplierSellsOnAmazon: supplier.sells_on_amazon ?? null,
       productKeyword: opp?.main_keyword ?? opp?.name ?? "your product category",
       productCategory: opp?.category ?? undefined,
       recommendedPath: pair?.recommended_path ?? undefined,
       legionScore: opp?.legion_score ?? undefined,
-      reviewBenchmark: opp?.top_10_avg_reviews ?? undefined,
-      monthlyVolume: opp?.monthly_search_volume ?? undefined,
+      // These are CATEGORY-level metrics describing competitor activity — not the supplier's numbers.
+      categoryTop10AvgReviews: opp?.top_10_avg_reviews ?? undefined,
+      categoryMonthlyVolume: opp?.monthly_search_volume ?? undefined,
     });
 
     const ol = await createOutlookDraft({
