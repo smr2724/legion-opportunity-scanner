@@ -220,35 +220,38 @@ export interface OutreachDraftOutput {
   body: string;
 }
 
-const OUTREACH_SYSTEM_PROMPT = `You write short, plain, operator-to-operator outreach emails for Steve Rolle, founder of Rolle Management Group (rollemanagementgroup.com). Steve is the OPERATOR, not the manufacturer. Companies he writes to make best-in-class products but are missing from Amazon (or are losing share to resellers/competitors there). Steve runs the Amazon channel on their behalf.
+const OUTREACH_SYSTEM_PROMPT = `You write short, plain, operator-to-operator outreach emails for Steve Rolle, founder of Rolle Management Group. Steve is the OPERATOR, not the manufacturer. The recipients make best-in-class products but are missing from Amazon (or losing share to resellers/competitors there). Steve runs the Amazon channel on their behalf and helps companies become category leaders for their products on Amazon.
 
 Proof points (use ONE max per email, never recite all three):
-- $60M+ lifetime Amazon sales across partner brands.
-- Legion Chemicals concrete remover: $0 → $1M+ ARR in 10 months.
-- DHS hospitality consumables: $0 → ~$10M/yr.
-- Specialty in industrial / boring / niche categories that other Amazon agencies ignore.
+- $60M+ lifetime Amazon sales operated across partner brands.
+- Legion Chemicals: $0 → $1M+ ARR in 10 months.
+- Hospitality consumables: $0 → ~$10M/yr.
+- We specialize in industrial / niche categories most Amazon agencies ignore.
 
-CRITICAL FACTS — do not get these wrong:
-- The category metrics in the input (monthly_search_volume, category_top10_avg_reviews, category_estimated_monthly_units) describe what is happening on Amazon TODAY for the keyword, driven by the recipient's COMPETITORS — NOT by the recipient's own sales.
-- If supplier_sells_on_amazon is false or unknown, NEVER imply they are doing units on Amazon. Frame it as "the category is doing X units/month on Amazon and you're not capturing any of it" or "I noticed your products aren't on Amazon yet — there's real demand for [keyword] there."
-- If supplier_sells_on_amazon is true, you can reference Amazon presence but NEVER fabricate sales numbers; talk about scaling/improving instead.
+CRITICAL RULES — do not violate:
+1. NEVER reference internal scoring or proprietary metrics. The recipient has no idea what "Legion Score", "Top-10 avg reviews", "monthly search volume", or any numeric category benchmark is. Do NOT mention any specific numbers about the category, search volume, or competitor reviews. Speak qualitatively: "there's real demand on Amazon for products like yours", "the category is being captured by lesser products", "customers are searching for this every day".
+2. NEVER imply the recipient is already selling on Amazon unless supplier_sells_on_amazon is true. If false/unknown, the framing is: their best-in-class product isn't being seen on Amazon, and competitors with weaker products are filling the gap.
+3. NEVER ask for a phone call, meeting, intro call, 15-min, demo, or any time on the calendar. The CTA is ALWAYS to visit the website. The website explains the partnership models; if they're interested, they reach out from there.
+4. The CTA URL is the marketing site URL provided in the input as 'marketing_site_url'. Use that exact URL in the email, written as a plain link. Do NOT make up any other URL.
+5. The website explains three ways we partner: (a) done-for-you operations under their brand, (b) wholesale or private-label, (c) authorized reseller. You may mention this lightly ("a few partnership models" or "three ways we partner") but do NOT enumerate or explain them in detail — that's what the website does.
 
-Goal of the email: get a 15-minute intro call. Soft secondary CTA: point them to rollemanagementgroup.com to learn more.
-
-Tone: an operator talking to a manufacturer. Direct. Short sentences. No buzzwords. No "hope this finds you well". No flattery. 90–140 words. Lowercase subject line. End with "Worth a quick 15-min call this week?" (or close variant).
+Tone: an operator talking to a manufacturer. Direct. Short sentences. No buzzwords. No "hope this finds you well". No flattery. 90–140 words. Lowercase subject line. End with a soft CTA pointing to the website — e.g. "More on how we work and the partnership models we offer at [URL]. If any of it resonates, reply or reach out from the site and we'll go from there."
 
 Return JSON with exact keys: subject, body. Use the first name if provided. Sign as:
 
 Steve Rolle
 Founder, Rolle Management Group
-rollemanagementgroup.com
 steve@rollemanagementgroup.com`;
 
 export async function generateOutreachDraft(input: OutreachDraftInput): Promise<OutreachDraftOutput> {
   if (!process.env.OPENAI_API_KEY) return placeholderOutreach(input);
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  // Build a clean, labeled payload so the model never confuses category metrics with supplier metrics.
+  // Build a clean, labeled payload. Internal scores/metrics are deliberately NOT included — the recipient has no idea what they mean.
   const onAmazon = input.supplierSellsOnAmazon === true;
+  const marketingUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ||
+    "https://legion-opportunity-scanner.vercel.app";
+
   const userPayload = {
     recipient: {
       first_name: input.contactFirstName ?? input.contactName.split(" ")[0],
@@ -257,23 +260,16 @@ export async function generateOutreachDraft(input: OutreachDraftInput): Promise<
     },
     supplier_status: {
       sells_on_amazon: onAmazon,
-      framing: onAmazon
-        ? "They have some Amazon presence — talk about scaling, not launching."
-        : "They are NOT on Amazon. Pitch is: the category is moving real volume without you. We can run the channel on your behalf.",
     },
     opportunity: {
+      // Just the qualitative product context. NO internal metrics.
       keyword: input.productKeyword,
       category: input.productCategory ?? null,
-      legion_score: input.legionScore ?? null,
-      // Explicitly labeled as CATEGORY metrics so the model doesn't attribute them to the recipient.
-      category_monthly_search_volume: input.categoryMonthlyVolume ?? null,
-      category_top10_avg_reviews: input.categoryTop10AvgReviews ?? null,
-      category_estimated_monthly_units_competitors: input.categoryEstimatedMonthlyUnits ?? null,
-      recommended_path: input.recommendedPath ?? null,
     },
+    marketing_site_url: marketingUrl,
     instructions: onAmazon
-      ? "Write the email assuming the recipient already sells some on Amazon. Focus on scaling and protecting the brand from resellers."
-      : "Write the email assuming the recipient does NOT sell on Amazon. Open with the observation that their products aren't on Amazon, name the demand (cite category_monthly_search_volume or category_estimated_monthly_units_competitors as competitor activity, NOT their sales), then offer to run the channel for them. Reference ONE proof point. Push them to rollemanagementgroup.com and ask for 15-min call.",
+      ? "Write the email assuming the recipient has some Amazon presence but is leaving meaningful upside on the table or losing brand control to resellers. Frame it qualitatively (no numbers). Reference ONE proof point. Drive them to the marketing_site_url to learn how we work and the partnership models we offer. Do NOT ask for a call. The CTA is to visit the site."
+      : "Write the email assuming the recipient does NOT sell on Amazon. Open with the observation that their best-in-class product isn't being seen on Amazon, and that the category is being filled by lesser products / resellers. Name the missed opportunity qualitatively — NO numbers, NO benchmarks. Reference ONE proof point. Drive them to the marketing_site_url to learn how we help companies just like them become category leaders on Amazon. Do NOT ask for a call. The CTA is to visit the site.",
   };
 
   try {
@@ -303,18 +299,21 @@ export async function generateOutreachDraft(input: OutreachDraftInput): Promise<
 function placeholderOutreach(input: OutreachDraftInput): OutreachDraftOutput {
   const first = input.contactFirstName ?? input.contactName.split(" ")[0] ?? "there";
   const onAmazon = input.supplierSellsOnAmazon === true;
-  const sig = `Steve Rolle\nFounder, Rolle Management Group\nrollemanagementgroup.com\nsteve@rollemanagementgroup.com`;
+  const url =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ||
+    "https://legion-opportunity-scanner.vercel.app";
+  const sig = `Steve Rolle\nFounder, Rolle Management Group\nsteve@rollemanagementgroup.com`;
 
   if (!onAmazon) {
     return {
-      subject: `${input.productKeyword} on amazon — quick idea for ${input.companyName.toLowerCase()}`,
-      body: `Hi ${first},\n\nI noticed ${input.companyName} doesn't have a real presence on Amazon for ${input.productKeyword}. Meanwhile the category is moving real volume there — it's just being captured by competitors who probably don't make as good a product as you do.\n\nI run Rolle Management Group. We operate the Amazon channel on behalf of established manufacturers in industrial and niche categories. Most recently we took Legion Chemicals from $0 to over $1M in ARR in 10 months in a similar industrial niche.\n\nWe handle everything — listings, brand store, PPC, logistics, brand protection — under your brand or ours. You'd see the channel built without lifting a finger.\n\nMore on us at rollemanagementgroup.com. Worth a quick 15-min call this week to see if there's a fit?\n\n${sig}`,
+      subject: `${input.productKeyword} on amazon — a thought for ${input.companyName.toLowerCase()}`,
+      body: `Hi ${first},\n\nI run Rolle Management Group. We help established manufacturers become category leaders on Amazon for the products they already make best.\n\nI noticed ${input.companyName}'s ${input.productKeyword} isn't really being seen on Amazon. Meanwhile the category is being filled by lesser products and resellers — customers searching for it every day are landing on whoever bothers to show up.\n\nWe took Legion Chemicals from $0 to over $1M in ARR in 10 months doing exactly this in a similar niche. We have a few partnership models depending on how hands-on you want to be.\n\nMore on how we work, the case studies, and the partnership models at:\n${url}\n\nIf any of it resonates, reach out from the site and we'll take it from there.\n\n${sig}`,
     };
   }
 
   return {
-    subject: `scaling ${input.companyName.toLowerCase()} on amazon`,
-    body: `Hi ${first},\n\nI took a look at ${input.companyName}'s presence on Amazon for ${input.productKeyword} and wanted to reach out. There's room to scale that channel meaningfully — and to clean up any reseller / brand-control issues at the same time.\n\nI run Rolle Management Group. We operate Amazon for established manufacturers in industrial and niche categories — $60M+ lifetime across partner brands. Most operators won't touch boring categories. That's exactly where we shine.\n\nMore on us at rollemanagementgroup.com. Worth a quick 15-min call this week?\n\n${sig}`,
+    subject: `${input.companyName.toLowerCase()} on amazon — a thought`,
+    body: `Hi ${first},\n\nI run Rolle Management Group. We operate Amazon for established manufacturers — $60M+ lifetime across partner brands.\n\nI took a look at ${input.companyName}'s presence on Amazon for ${input.productKeyword} and wanted to reach out. There's real room to grow the channel and clean up any reseller / brand-control issues along the way — the kind of work we specialize in for industrial and niche categories.\n\nMore on how we work, case studies, and the partnership models we offer at:\n${url}\n\nIf any of it resonates, reach out from the site and we'll take it from there.\n\n${sig}`,
   };
 }
 
