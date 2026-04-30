@@ -1,16 +1,14 @@
 /**
  * Microsoft Outlook draft creation via Microsoft Graph.
  *
- * Two ways to authenticate:
- *   1. Server env var `OUTLOOK_ACCESS_TOKEN` — a delegated Graph token for
- *      Steve's mailbox (steve@rollemanagementgroup.com). Easiest for v1:
- *      grab from Graph Explorer or a small OAuth helper, paste into Vercel.
- *   2. Per-user OAuth flow (future) — store refresh tokens in Supabase and
- *      mint access tokens on demand.
+ * Auth: server env var `OUTLOOK_ACCESS_TOKEN` — a delegated Graph token for
+ * Steve's mailbox (steve@rollemanagementgroup.com). Grab from Graph Explorer
+ * (signed in with Mail.ReadWrite consent), paste into Vercel.
  *
- * For v1 we ship #1 and gracefully degrade to a `mailto:` fallback when the
- * token isn't configured, so Steve can still review drafts in his email
- * client today.
+ * Tokens expire in ~60–90 minutes. There is intentionally NO mailto fallback
+ * — if the token is missing or expired, the UI surfaces a clear error so
+ * Steve refreshes the token in Vercel rather than silently spawning the
+ * macOS Mail app (which is what "mailto:" does on desktops).
  */
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
@@ -29,17 +27,17 @@ export interface CreateDraftResult {
   ok: boolean;
   outlookDraftId?: string;
   webLink?: string;
-  mailtoFallback?: string;
   error?: string;
 }
 
 export async function createOutlookDraft(input: CreateDraftInput): Promise<CreateDraftResult> {
-  // Always compute the mailto fallback so the UI has something to click.
-  const mailto = buildMailto(input);
-
   const token = process.env.OUTLOOK_ACCESS_TOKEN;
   if (!token) {
-    return { ok: false, error: "OUTLOOK_ACCESS_TOKEN missing", mailtoFallback: mailto };
+    return {
+      ok: false,
+      error:
+        "Outlook is not connected. Refresh OUTLOOK_ACCESS_TOKEN in Vercel (Graph Explorer → Mail.ReadWrite) and redeploy.",
+    };
   }
 
   const payload = {
@@ -70,10 +68,12 @@ export async function createOutlookDraft(input: CreateDraftInput): Promise<Creat
     });
     if (!r.ok) {
       const text = await r.text();
+      const expired = r.status === 401 || /InvalidAuthenticationToken|expired|lifetime/i.test(text);
       return {
         ok: false,
-        error: `Graph ${r.status}: ${text.slice(0, 200)}`,
-        mailtoFallback: mailto,
+        error: expired
+          ? "Outlook access token expired. Refresh OUTLOOK_ACCESS_TOKEN in Vercel (Graph Explorer → Mail.ReadWrite) and redeploy."
+          : `Graph ${r.status}: ${text.slice(0, 200)}`,
       };
     }
     const data = await r.json();
@@ -81,20 +81,10 @@ export async function createOutlookDraft(input: CreateDraftInput): Promise<Creat
       ok: true,
       outlookDraftId: data.id,
       webLink: data.webLink,
-      mailtoFallback: mailto,
     };
   } catch (e: any) {
-    return { ok: false, error: String(e?.message ?? e), mailtoFallback: mailto };
+    return { ok: false, error: String(e?.message ?? e) };
   }
-}
-
-function buildMailto(input: CreateDraftInput) {
-  return (
-    "mailto:" +
-    encodeURIComponent(input.toEmail) +
-    `?subject=${encodeURIComponent(input.subject)}` +
-    `&body=${encodeURIComponent(input.body)}`
-  );
 }
 
 export async function testOutlook(): Promise<{ ok: boolean; error?: string; user_email?: string }> {

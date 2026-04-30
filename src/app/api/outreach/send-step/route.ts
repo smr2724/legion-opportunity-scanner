@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
     report_url,
   });
 
-  // Create Outlook draft (or get mailto fallback)
+  // Create Outlook draft — fail hard if it doesn't land in Drafts.
+  // No mailto fallback: that opens macOS Mail.app on desktop instead of Outlook.
   const draft = await createOutlookDraft({
     toEmail: contact.email,
     toName: contact.full_name,
@@ -57,7 +58,18 @@ export async function POST(req: NextRequest) {
     body: filled.body,
   });
 
-  // Record the thread row
+  if (!draft.ok || !draft.outlookDraftId) {
+    return NextResponse.json(
+      {
+        error:
+          draft.error ??
+          "Could not create Outlook draft. Check OUTLOOK_ACCESS_TOKEN in Vercel.",
+      },
+      { status: 502 },
+    );
+  }
+
+  // Record the thread row only after the draft is confirmed in Outlook.
   const { data: thread, error: insertError } = await supabase
     .from("outreach_threads")
     .insert({
@@ -70,7 +82,7 @@ export async function POST(req: NextRequest) {
       status: "draft",
       subject: filled.subject,
       body: filled.body,
-      outlook_draft_id: draft.outlookDraftId ?? null,
+      outlook_draft_id: draft.outlookDraftId,
       outlook_web_link: draft.webLink ?? null,
       last_action_at: new Date().toISOString(),
     })
@@ -84,6 +96,5 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     thread,
     web_link: draft.webLink ?? null,
-    mailto_fallback: draft.mailtoFallback ?? null,
   });
 }

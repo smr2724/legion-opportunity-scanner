@@ -249,11 +249,10 @@ export default function ContactsSection({
       if (d.thread) {
         setThreads((prev) => [d.thread, ...prev]);
       }
-      // Open the draft if we got a web link
+      // Open the Outlook web draft. No mailto fallback — the API will have
+      // already returned an error if the draft couldn't be created.
       if (d.web_link) {
         window.open(d.web_link, "_blank");
-      } else if (d.mailto_fallback) {
-        window.location.href = d.mailto_fallback;
       }
     } catch (e: any) {
       setError(String(e.message ?? e));
