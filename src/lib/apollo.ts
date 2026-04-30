@@ -62,7 +62,8 @@ export async function searchPeopleByCompany(opts: {
   };
 
   if (opts.domain) {
-    body.q_organization_domains = opts.domain;
+    // New api_search endpoint expects an array (or newline-separated string).
+    body.q_organization_domains_list = [opts.domain];
   } else if (opts.companyName) {
     body.q_organization_name = opts.companyName;
   } else {
@@ -70,7 +71,8 @@ export async function searchPeopleByCompany(opts: {
   }
 
   try {
-    const r = await fetch(`${APOLLO_BASE}/mixed_people/search`, {
+    // Apollo deprecated /mixed_people/search in 2025; the API-key replacement is /mixed_people/api_search.
+    const r = await fetch(`${APOLLO_BASE}/mixed_people/api_search`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
