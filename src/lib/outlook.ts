@@ -1,22 +1,23 @@
 /**
  * Microsoft Outlook draft creation via Microsoft Graph.
  *
- * Auth: server env var `OUTLOOK_ACCESS_TOKEN` — a delegated Graph token for
- * Steve's mailbox (steve@rollemanagementgroup.com). Grab from Graph Explorer
- * (signed in with Mail.ReadWrite consent), paste into Vercel.
+ * Auth strategy (in order of preference):
+ *   1. Per-user OAuth via the `oauth_tokens` table — refresh tokens auto-renew
+ *      indefinitely as long as the user keeps using the app at least every 90 days.
+ *      Set up via the "Connect Outlook" button on /app/settings.
+ *   2. Legacy `OUTLOOK_ACCESS_TOKEN` env var — still honored as a fallback for
+ *      the original v1 setup. Tokens expire in ~60–90 minutes.
  *
- * Tokens expire in ~60–90 minutes. There is intentionally NO mailto fallback
- * — if the token is missing or expired, the UI surfaces a clear error so
- * Steve refreshes the token in Vercel rather than silently spawning the
- * macOS Mail app (which is what "mailto:" does on desktops).
+ * If neither is configured, the API returns a clear error that tells Steve to
+ * click Connect Outlook. There is intentionally NO mailto fallback (that opens
+ * macOS Mail.app on desktops).
  */
+import { getValidOutlookToken } from "@/lib/microsoft-oauth";
+
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
-export function isOutlookConfigured() {
-  return !!process.env.OUTLOOK_ACCESS_TOKEN;
-}
-
 export interface CreateDraftInput {
+  userId: string;
   toEmail: string;
   toName?: string;
   subject: string;
@@ -30,13 +31,21 @@ export interface CreateDraftResult {
   error?: string;
 }
 
+async function resolveAccessToken(userId: string): Promise<string | null> {
+  // Prefer per-user OAuth.
+  const oauth = await getValidOutlookToken(userId);
+  if (oauth?.accessToken) return oauth.accessToken;
+  // Fallback to legacy env var.
+  return process.env.OUTLOOK_ACCESS_TOKEN || null;
+}
+
 export async function createOutlookDraft(input: CreateDraftInput): Promise<CreateDraftResult> {
-  const token = process.env.OUTLOOK_ACCESS_TOKEN;
+  const token = await resolveAccessToken(input.userId);
   if (!token) {
     return {
       ok: false,
       error:
-        "Outlook is not connected. Refresh OUTLOOK_ACCESS_TOKEN in Vercel (Graph Explorer → Mail.ReadWrite) and redeploy.",
+        "Outlook is not connected. Click \"Connect Outlook\" on the Settings page to authorize.",
     };
   }
 
@@ -72,7 +81,7 @@ export async function createOutlookDraft(input: CreateDraftInput): Promise<Creat
       return {
         ok: false,
         error: expired
-          ? "Outlook access token expired. Refresh OUTLOOK_ACCESS_TOKEN in Vercel (Graph Explorer → Mail.ReadWrite) and redeploy."
+          ? "Outlook authorization expired. Click \"Connect Outlook\" on the Settings page to reconnect."
           : `Graph ${r.status}: ${text.slice(0, 200)}`,
       };
     }
@@ -87,11 +96,14 @@ export async function createOutlookDraft(input: CreateDraftInput): Promise<Creat
   }
 }
 
-export async function testOutlook(): Promise<{ ok: boolean; error?: string; user_email?: string }> {
-  if (!process.env.OUTLOOK_ACCESS_TOKEN) return { ok: false, error: "OUTLOOK_ACCESS_TOKEN missing" };
+export async function testOutlook(
+  userId: string,
+): Promise<{ ok: boolean; error?: string; user_email?: string }> {
+  const token = await resolveAccessToken(userId);
+  if (!token) return { ok: false, error: "Outlook not connected" };
   try {
     const r = await fetch(`${GRAPH_BASE}/me`, {
-      headers: { Authorization: `Bearer ${process.env.OUTLOOK_ACCESS_TOKEN}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
     if (!r.ok) return { ok: false, error: `Graph ${r.status}` };
     const d = await r.json();

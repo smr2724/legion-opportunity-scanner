@@ -4,7 +4,8 @@ import { testDataForSEO, isDataForSEOConfigured } from "@/lib/dataforseo";
 import { testKeepa, isKeepaConfigured } from "@/lib/keepa";
 import { testOpenAI, isOpenAIConfigured } from "@/lib/openai";
 import { testApollo, isApolloConfigured } from "@/lib/apollo";
-import { testOutlook, isOutlookConfigured } from "@/lib/outlook";
+import { testOutlook } from "@/lib/outlook";
+import { getStoredToken, isMicrosoftOAuthConfigured } from "@/lib/microsoft-oauth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,22 +31,42 @@ export async function POST(req: Request) {
   } else if (provider === "apollo") {
     result = isApolloConfigured() ? await testApollo() : { ok: false, error: "not configured" };
   } else if (provider === "outlook") {
-    result = isOutlookConfigured() ? await testOutlook() : { ok: false, error: "not configured" };
+    result = await testOutlook(user.id);
   }
 
   return NextResponse.json(result);
 }
 
 export async function GET() {
-  // Summary for Settings page
+  const supabase = createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Per-user OAuth-connected check
+  let outlookConnected = false;
+  let outlookEmail: string | null = null;
+  if (user) {
+    const stored = await getStoredToken(user.id);
+    if (stored) {
+      outlookConnected = true;
+      outlookEmail = stored.account_email;
+    } else if (process.env.OUTLOOK_ACCESS_TOKEN) {
+      outlookConnected = true; // legacy env-var token
+    }
+  }
+
   return NextResponse.json({
     configured: {
       dataforseo: isDataForSEOConfigured(),
       keepa: isKeepaConfigured(),
       openai: isOpenAIConfigured(),
       apollo: isApolloConfigured(),
-      outlook: isOutlookConfigured(),
+      outlook: outlookConnected,
       supabase: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    },
+    outlook: {
+      connected: outlookConnected,
+      account_email: outlookEmail,
+      oauth_app_configured: isMicrosoftOAuthConfigured(),
     },
   });
 }

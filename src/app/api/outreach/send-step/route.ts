@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
   // Create Outlook draft — fail hard if it doesn't land in Drafts.
   // No mailto fallback: that opens macOS Mail.app on desktop instead of Outlook.
   const draft = await createOutlookDraft({
+    userId: user.id,
     toEmail: contact.email,
     toName: contact.full_name,
     subject: filled.subject,
