@@ -78,9 +78,26 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
 
   const { data: threads } = await supabase
     .from("outreach_threads")
-    .select("id, contact_id, status, subject, outlook_web_link")
+    .select("id, contact_id, opportunity_id, step, status, subject, outlook_web_link, sent_at, created_at")
     .eq("supplier_id", id)
     .order("created_at", { ascending: false });
+
+  // Existing reports for this supplier (one per opportunity max).
+  const { data: reports } = await supabase
+    .from("reports")
+    .select("id, token, opportunity_id, created_at, views")
+    .eq("supplier_id", id)
+    .order("created_at", { ascending: false });
+
+  // Build a flat list of opportunity options for the dropdown.
+  const opportunityOptions = (pairs ?? [])
+    .map((p: any) => ({
+      opportunity_id: p.opportunity_id,
+      keyword: p.opportunities?.main_keyword ?? p.opportunities?.name ?? "opportunity",
+      legion_score: p.opportunities?.legion_score ?? null,
+      supplier_score: p.supplier_score,
+    }))
+    .sort((a, b) => (b.supplier_score ?? 0) - (a.supplier_score ?? 0));
 
   return (
     <div className="p-4 md:p-6 max-w-[1300px] mx-auto">
@@ -126,8 +143,11 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
       {/* CRM: Contacts & Outreach */}
       <ContactsSection
         supplierId={id}
+        supplierName={supplier.company_name}
         initialContacts={(contacts ?? []) as any}
         initialThreads={(threads ?? []) as any}
+        opportunityOptions={opportunityOptions}
+        initialReports={(reports ?? []) as any}
       />
 
       {/* Quick facts */}
