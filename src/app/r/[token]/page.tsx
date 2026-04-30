@@ -50,7 +50,7 @@ export default async function ReportPage({ params }: PageProps) {
     admin
       .from("opportunities")
       .select(
-        "id, name, main_keyword, category, monthly_search_volume, total_cluster_search_volume, top_10_avg_reviews, top_10_avg_rating, avg_price, recommended_path, evidence"
+        "id, name, main_keyword, category, monthly_search_volume, total_cluster_search_volume, top_10_avg_reviews, top_10_avg_rating, avg_price, recommended_path"
       )
       .eq("id", report.opportunity_id)
       .single(),
@@ -58,7 +58,18 @@ export default async function ReportPage({ params }: PageProps) {
 
   const supplier = supRes.data;
   const opportunity = oppRes.data;
-  if (!supplier || !opportunity) return notFound();
+  if (!supplier || !opportunity) {
+    console.error("[report] missing data", {
+      token: params.token,
+      supplier_id: report.supplier_id,
+      opportunity_id: report.opportunity_id,
+      supErr: supRes.error?.message,
+      oppErr: oppRes.error?.message,
+      hasSupplier: !!supplier,
+      hasOpportunity: !!opportunity,
+    });
+    return notFound();
+  }
 
   // Pull the opportunity-supplier pair for fit narrative
   const { data: pair } = await admin
@@ -73,16 +84,11 @@ export default async function ReportPage({ params }: PageProps) {
   const productCategory = opportunity.main_keyword || opportunity.name || "your category";
   const onAmazon = supplier.sells_on_amazon === true;
 
-  // Up to 5 SERP rows for evidence (labelled in customer-friendly way)
-  const evidence = (opportunity.evidence ?? null) as any;
-  const topListings: Array<{ title: string; brand?: string; price?: string }> =
-    Array.isArray(evidence?.top_serp)
-      ? evidence.top_serp.slice(0, 5).map((r: any) => ({
-          title: r.title ?? r.name ?? "Listing",
-          brand: r.brand ?? null,
-          price: r.price ? `$${r.price}` : null,
-        }))
-      : [];
+  // Topline numbers for the category (customer-friendly, no internal scores)
+  const monthlySearches = opportunity.monthly_search_volume ?? null;
+  const avgPrice = opportunity.avg_price ?? null;
+  const avgReviews = opportunity.top_10_avg_reviews ?? null;
+  const hasCategoryNumbers = monthlySearches || avgPrice || avgReviews;
 
   return (
     <div className="report-root">
@@ -134,22 +140,32 @@ export default async function ReportPage({ params }: PageProps) {
             </p>
           </div>
 
-          {topListings.length > 0 && (
+          {hasCategoryNumbers && (
             <div className="r-evidence">
-              <div className="r-evidence-label">Sample of what currently ranks for &ldquo;{productCategory}&rdquo;</div>
-              <ul className="r-listings">
-                {topListings.map((l, i) => (
-                  <li key={i}>
-                    <span className="r-listing-num">{i + 1}.</span>
-                    <span className="r-listing-title">{l.title}</span>
-                    {l.brand && <span className="r-listing-brand">{l.brand}</span>}
-                    {l.price && <span className="r-listing-price">{l.price}</span>}
-                  </li>
-                ))}
-              </ul>
+              <div className="r-evidence-label">What the category looks like today</div>
+              <div className="r-cat-stats">
+                {monthlySearches && (
+                  <div className="r-cat-stat">
+                    <div className="r-cat-num">{Number(monthlySearches).toLocaleString()}</div>
+                    <div className="r-cat-lbl">Monthly searches on Amazon for &ldquo;{productCategory}&rdquo;</div>
+                  </div>
+                )}
+                {avgPrice && (
+                  <div className="r-cat-stat">
+                    <div className="r-cat-num">${Number(avgPrice).toFixed(2)}</div>
+                    <div className="r-cat-lbl">Average price of top-ranking listings</div>
+                  </div>
+                )}
+                {avgReviews && (
+                  <div className="r-cat-stat">
+                    <div className="r-cat-num">{Math.round(Number(avgReviews)).toLocaleString()}</div>
+                    <div className="r-cat-lbl">Average review count of the top 10 listings</div>
+                  </div>
+                )}
+              </div>
               <p className="r-evidence-note">
-                None of these listings benefit from the manufacturing pedigree, quality control, or
-                product expertise that {supplier.company_name} brings.
+                None of the listings winning this traffic today benefit from the manufacturing
+                pedigree, quality control, or product expertise that {supplier.company_name} brings.
               </p>
             </div>
           )}
@@ -385,7 +401,12 @@ function ReportStyles() {
       .r-listing-title { flex: 1; min-width: 220px; }
       .r-listing-brand { color: var(--text-muted); font-size: 13px; }
       .r-listing-price { color: var(--gold-soft); font-size: 13px; font-variant-numeric: tabular-nums; }
-      .r-evidence-note { color: var(--text-muted); font-size: 14px; margin: 8px 0 0; font-style: italic; }
+      .r-evidence-note { color: var(--text-muted); font-size: 14px; margin: 12px 0 0; font-style: italic; }
+
+      .r-cat-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+      .r-cat-stat { padding: 16px; border: 1px solid var(--border-soft); border-radius: 10px; background: rgba(255,255,255,0.02); }
+      .r-cat-num { color: var(--gold); font-size: 26px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+      .r-cat-lbl { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
 
       .r-fit-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 32px 0 24px; }
       .r-fit-primary { grid-column: 1 / -1; }
